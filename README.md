@@ -1,4 +1,4 @@
-# Doc Chat RAG Explorer — Mini Project
+# Doc Chat RAG Explorer
 
 A small full-stack app proving out the RAG pipeline from this folder
 (`llamaIndex.py`, `RAG-app-simple chatbot/Langchain/rag.py`), running the full
@@ -30,8 +30,8 @@ folder) + local `sentence-transformers/all-MiniLM-L6-v2` embeddings (no API cost
 From the repo root (needs the repo's `.env` with `GROQ_API_KEY` set):
 
 ```bash
-pip install -r "3-RAG Applications/Mini-Project-Doc-Chat-RAG-Explorer/requirements.txt"
-python -m uvicorn app:app --reload --app-dir "3-RAG Applications/Mini-Project-Doc-Chat-RAG-Explorer"
+pip install -r "Projects/3-Doc-Chat-RAG-Explorer/requirements.txt"
+python -m uvicorn app:app --reload --app-dir "Projects/3-Doc-Chat-RAG-Explorer"
 ```
 
 Then open http://localhost:8000 (or whichever port you pass with `--port`).

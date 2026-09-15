@@ -8,7 +8,7 @@ from rag_pipeline import ask, build_index, has_session, retrieve
 
 app = FastAPI(
     title="Doc Chat RAG Explorer",
-    description="Mini project: the full RAG pipeline (chunk -> embed -> store -> "
+    description="The full RAG pipeline (chunk -> embed -> store -> "
     "retrieve -> augment -> generate), backed by Chroma + Groq.",
 )
 
