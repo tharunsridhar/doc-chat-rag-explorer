@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Doc Chat RAG Explorer</title>
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+<header class="hero">
+  <h1>📚 Doc Chat RAG Explorer</h1>
+  <p>A mini project walking through the full RAG pipeline — chunk, embed, store, retrieve,
+     augment, generate — live against a real vector store and <strong>Groq</strong>, with a plain
+     HTML/CSS/JS frontend wired straight to the FastAPI backend.</p>
+  <a class="docs-link" href="/docs" target="_blank">View raw API docs (Swagger UI) →</a>
+</header>
+
+<main>
+
+  <!-- ============ HOW IT WORKS ============ -->
+  <section class="card">
+    <h2>How RAG actually works</h2>
+    <p class="lead">Every stage below is a real step in the pipeline, not a simplification:</p>
+    <div class="flow">
+      <div class="flow-step">
+        <span class="flow-num">1</span>
+        <h3>Chunk</h3>
+        <p>Long text is split into overlapping pieces (<code>chunk_size=500</code>,
+           <code>overlap=50</code>) so each piece is small enough to embed meaningfully.</p>
+      </div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step">
+        <span class="flow-num">2</span>
+        <h3>Embed</h3>
+        <p>A local model (<code>all-MiniLM-L6-v2</code>) turns each chunk into a vector —
+           numbers that capture its meaning.</p>
+      </div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step">
+        <span class="flow-num">3</span>
+        <h3>Store</h3>
+        <p>Vectors go into a <strong>Chroma</strong> vector database, ready to be searched by
+           similarity instead of by keyword.</p>
+      </div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step">
+        <span class="flow-num">4</span>
+        <h3>Retrieve</h3>
+        <p>Your question is embedded the same way, then Chroma returns the closest-matching
+           chunks — this alone is <em>retrieval</em>, no LLM involved yet.</p>
+      </div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step">
+        <span class="flow-num">5</span>
+        <h3>Augment</h3>
+        <p>The retrieved chunks are stitched into a prompt as "context" alongside your actual
+           question — this is the "augmented" in Retrieval-<strong>Augmented</strong> Generation.</p>
+      </div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step">
+        <span class="flow-num">6</span>
+        <h3>Generate</h3>
+        <p>That augmented prompt is sent to Groq's LLM, which answers using only the context
+           it was given.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 1. BUILD ============ -->
+  <section class="card">
+    <h2>1. Build the index</h2>
+    <p class="lead">Paste some text or upload a <code>.txt</code> file. This runs steps 1-3
+       (chunk → embed → store) and creates a fresh, in-memory vector store just for this document.</p>
+    <form id="build-text-form">
+      <textarea id="build-text" rows="5" placeholder="Paste a paragraph or two here..."></textarea>
+      <button type="submit">Build index from text</button>
+    </form>
+    <form id="build-file-form">
+      <input type="file" id="build-file" accept=".txt,.md" />
+      <button type="submit">Build index from file</button>
+    </form>
+    <div class="result" id="build-result" hidden>
+      <div class="stage"><span class="stage-label">Chunks created</span><p id="build-count"></p></div>
+      <div class="stage"><span class="stage-label">First chunk preview</span><p id="build-preview"></p></div>
+    </div>
+    <details class="inspector" id="build-inspector" hidden>
+      <summary>Under the hood: request / response</summary>
+      <pre></pre>
+    </details>
+  </section>
+
+  <!-- ============ 2. RETRIEVE ============ -->
+  <section class="card">
+    <h2>2. Retrieve (no LLM yet)</h2>
+    <p class="lead">
+      Just step 4 by itself — see which chunks the vector store thinks are most relevant to your
+      question, and how similar each one is. No generation happens here.
+    </p>
+    <form id="retrieve-form">
+      <input id="retrieve-question" placeholder="Ask something about the text above..." required />
+      <button type="submit">Retrieve chunks</button>
+    </form>
+    <div class="result" id="retrieve-result" hidden></div>
+    <details class="inspector" id="retrieve-inspector" hidden>
+      <summary>Under the hood: request / response</summary>
+      <pre></pre>
+    </details>
+  </section>
+
+  <!-- ============ 3. ASK ============ -->
+  <section class="card">
+    <h2>3. Ask (full RAG: retrieve + generate)</h2>
+    <p class="lead">
+      Steps 4-6 together: retrieve the relevant chunks, augment a prompt with them, and let Groq
+      generate an answer grounded in your document.
+    </p>
+    <form id="ask-form">
+      <input id="ask-question" placeholder="Ask a question about the text above..." required />
+      <button type="submit">Get answer</button>
+    </form>
+    <div class="result" id="ask-result" hidden>
+      <div class="stage"><span class="stage-label">Answer</span><p id="ask-answer"></p></div>
+    </div>
+    <details class="inspector" id="ask-inspector" hidden>
+      <summary>Under the hood: retrieved chunks + exact augmented prompt sent to Groq</summary>
+      <pre></pre>
+    </details>
+  </section>
+
+</main>
+
+<footer>
+  <p>Folder 3 mini project — the full RAG pipeline (LangChain + Chroma) served over FastAPI,
+     powered by Groq.</p>
+</footer>
+
+<script src="app.js"></script>
+</body>
+</html>
