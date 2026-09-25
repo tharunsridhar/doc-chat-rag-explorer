@@ -27,11 +27,11 @@ folder) + local `sentence-transformers/all-MiniLM-L6-v2` embeddings (no API cost
 
 ## Run it
 
-From the repo root (needs the repo's `.env` with `GROQ_API_KEY` set):
+Needs a `.env` file in this folder with `GROQ_API_KEY` set (copy `.env.example` and fill it in).
 
 ```bash
-pip install -r "Projects/3-Doc-Chat-RAG-Explorer/requirements.txt"
-python -m uvicorn app:app --reload --app-dir "Projects/3-Doc-Chat-RAG-Explorer"
+pip install -r requirements.txt
+python -m uvicorn app:app --reload
 ```
 
 Then open http://localhost:8000 (or whichever port you pass with `--port`).
