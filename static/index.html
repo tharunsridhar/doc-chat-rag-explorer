@@ -9,99 +9,84 @@
 <body>
 
 <header class="hero">
-  <h1>📚 Doc Chat RAG Explorer</h1>
-  <p>A project walking through the full RAG pipeline — chunk, embed, store, retrieve,
-     augment, generate — live against a real vector store and <strong>Groq</strong>, with a plain
-     HTML/CSS/JS frontend wired straight to the FastAPI backend.</p>
-  <a class="docs-link" href="/docs" target="_blank">View raw API docs (Swagger UI) →</a>
+  <h1>RAG Explorer <span class="tag">a RAG debugger</span></h1>
+  <p>Most RAG demos hide the pipeline behind a chat box. This one opens it up: see where your text
+     gets cut, where your question lands in embedding space, what the model was actually shown, and
+     <em>why</em> an answer went wrong.</p>
+  <a class="docs-link" href="/docs" target="_blank">Raw API docs (Swagger UI) →</a>
+  <div class="status" id="llm-status"></div>
 </header>
 
 <main>
 
-  <!-- ============ HOW IT WORKS ============ -->
-  <section class="card">
-    <h2>How RAG actually works</h2>
-    <p class="lead">Every stage below is a real step in the pipeline, not a simplification:</p>
-    <div class="flow">
-      <div class="flow-step">
-        <span class="flow-num">1</span>
-        <h3>Chunk</h3>
-        <p>Long text is split into overlapping pieces (<code>chunk_size=500</code>,
-           <code>overlap=50</code>) so each piece is small enough to embed meaningfully.</p>
-      </div>
-      <div class="flow-arrow">→</div>
-      <div class="flow-step">
-        <span class="flow-num">2</span>
-        <h3>Embed</h3>
-        <p>A local model (<code>all-MiniLM-L6-v2</code>) turns each chunk into a vector —
-           numbers that capture its meaning.</p>
-      </div>
-      <div class="flow-arrow">→</div>
-      <div class="flow-step">
-        <span class="flow-num">3</span>
-        <h3>Store</h3>
-        <p>Vectors go into a <strong>Chroma</strong> vector database, ready to be searched by
-           similarity instead of by keyword.</p>
-      </div>
-      <div class="flow-arrow">→</div>
-      <div class="flow-step">
-        <span class="flow-num">4</span>
-        <h3>Retrieve</h3>
-        <p>Your question is embedded the same way, then Chroma returns the closest-matching
-           chunks — this alone is <em>retrieval</em>, no LLM involved yet.</p>
-      </div>
-      <div class="flow-arrow">→</div>
-      <div class="flow-step">
-        <span class="flow-num">5</span>
-        <h3>Augment</h3>
-        <p>The retrieved chunks are stitched into a prompt as "context" alongside your actual
-           question — this is the "augmented" in Retrieval-<strong>Augmented</strong> Generation.</p>
-      </div>
-      <div class="flow-arrow">→</div>
-      <div class="flow-step">
-        <span class="flow-num">6</span>
-        <h3>Generate</h3>
-        <p>That augmented prompt is sent to Groq's LLM, which answers using only the context
-           it was given.</p>
-      </div>
-    </div>
-  </section>
+  <!-- ============ 1. BUILD + CHUNKING LAB ============ -->
+  <section class="card" id="sec-build">
+    <h2>1. Chunking lab and index</h2>
+    <p class="lead">Paste text, upload a <code>.txt</code>, or load the sample. Drag the sliders to see
+       where the splitter cuts (shaded bands are the overlap), then build the index.</p>
 
-  <!-- ============ 1. BUILD ============ -->
-  <section class="card">
-    <h2>1. Build the index</h2>
-    <p class="lead">Paste some text or upload a <code>.txt</code> file. This runs steps 1-3
-       (chunk → embed → store) and creates a fresh, in-memory vector store just for this document.</p>
-    <form id="build-text-form">
-      <textarea id="build-text" rows="5" placeholder="Paste a paragraph or two here..."></textarea>
-      <button type="submit">Build index from text</button>
-    </form>
-    <form id="build-file-form">
+    <div class="row">
+      <button type="button" class="ghost" id="load-sample">Load sample document</button>
       <input type="file" id="build-file" accept=".txt,.md" />
-      <button type="submit">Build index from file</button>
-    </form>
-    <div class="result" id="build-result" hidden>
-      <div class="stage"><span class="stage-label">Chunks created</span><p id="build-count"></p></div>
-      <div class="stage"><span class="stage-label">First chunk preview</span><p id="build-preview"></p></div>
     </div>
+    <textarea id="build-text" rows="6" placeholder="Paste a few paragraphs here..."></textarea>
+
+    <div class="controls">
+      <label>Chunk size <output id="out-size">500</output>
+        <input type="range" id="chunk-size" min="100" max="1500" step="50" value="500" /></label>
+      <label>Overlap <output id="out-overlap">50</output>
+        <input type="range" id="chunk-overlap" min="0" max="400" step="10" value="50" /></label>
+      <label>Embedding model
+        <select id="embedder"></select></label>
+    </div>
+
+    <div class="chunk-map" id="chunk-map" aria-label="Source text with chunk boundaries" hidden></div>
+    <p class="hint" id="chunk-stats"></p>
+    <div class="legend" id="chunk-legend" hidden>
+      <span class="swatch c0"></span><span class="swatch c1"></span><span class="swatch c2"></span> alternating chunks
+      <span class="swatch overlap"></span> overlap (text that appears in two chunks)
+    </div>
+
+    <div class="row">
+      <button type="button" id="build-btn">Build index</button>
+      <button type="button" class="ghost" id="build-file-btn">Build from file</button>
+    </div>
+
+    <div id="build-timing"></div>
     <details class="inspector" id="build-inspector" hidden>
       <summary>Under the hood: request / response</summary>
       <pre></pre>
     </details>
   </section>
 
-  <!-- ============ 2. RETRIEVE ============ -->
+  <!-- ============ SHARED QUESTION CONTROLS ============ -->
+  <section class="card sticky-card">
+    <h2>Question</h2>
+    <div class="samples" id="sample-chips"></div>
+    <p class="hint" id="sample-hint"></p>
+    <input id="question" placeholder="Ask something about the document..." />
+    <div class="controls">
+      <label>Retrieval strategy <select id="strategy"></select></label>
+      <label>Top-k <output id="out-k">4</output>
+        <input type="range" id="k" min="1" max="10" value="4" /></label>
+    </div>
+    <p class="hint">Used by the retrieve, ask, embedding map and breakage panels below.</p>
+  </section>
+
+  <!-- ============ 2. RETRIEVE + EMBEDDING SPACE ============ -->
   <section class="card">
-    <h2>2. Retrieve (no LLM yet)</h2>
-    <p class="lead">
-      Just step 4 by itself — see which chunks the vector store thinks are most relevant to your
-      question, and how similar each one is. No generation happens here.
-    </p>
-    <form id="retrieve-form">
-      <input id="retrieve-question" placeholder="Ask something about the text above..." required />
-      <button type="submit">Retrieve chunks</button>
-    </form>
-    <div class="result" id="retrieve-result" hidden></div>
+    <h2>2. Retrieve and embedding space</h2>
+    <p class="lead">Retrieval on its own, with no LLM. The map projects every chunk from 384
+       dimensions to 2 (PCA) and drops your question in as a point.</p>
+    <div class="row"><button type="button" id="retrieve-btn">Retrieve chunks</button></div>
+    <div class="two-col" id="retrieve-cols" hidden>
+      <div id="retrieve-result" class="result"></div>
+      <div>
+        <div id="space-wrap"></div>
+        <p class="hint" id="space-caption"></p>
+      </div>
+    </div>
+    <div id="retrieve-timing"></div>
     <details class="inspector" id="retrieve-inspector" hidden>
       <summary>Under the hood: request / response</summary>
       <pre></pre>
@@ -110,31 +95,104 @@
 
   <!-- ============ 3. ASK ============ -->
   <section class="card">
-    <h2>3. Ask (full RAG: retrieve + generate)</h2>
-    <p class="lead">
-      Steps 4-6 together: retrieve the relevant chunks, augment a prompt with them, and let Groq
-      generate an answer grounded in your document.
-    </p>
-    <form id="ask-form">
-      <input id="ask-question" placeholder="Ask a question about the text above..." required />
-      <button type="submit">Get answer</button>
-    </form>
-    <div class="result" id="ask-result" hidden>
-      <div class="stage"><span class="stage-label">Answer</span><p id="ask-answer"></p></div>
+    <h2>3. Ask (retrieve, augment, generate)</h2>
+    <p class="lead">The full pipeline. Each answer sentence is linked to the retrieved sentence it most
+       resembles, and a diagnosis says whether a bad answer is a retrieval problem or a generation problem.</p>
+    <div class="row"><button type="button" id="ask-btn">Get answer</button></div>
+    <div id="ask-result" hidden>
+      <div class="stage"><span class="stage-label">Answer (hover a sentence to see its source)</span>
+        <p id="ask-answer" class="answer"></p></div>
+      <div class="diagnosis" id="diagnosis"></div>
+      <div class="two-col">
+        <div><h3>Retrieved context</h3><div id="ask-chunks" class="result"></div></div>
+        <div>
+          <h3>Timing per stage</h3><div id="ask-timing"></div>
+          <h3>Context budget</h3><div id="ask-budget"></div>
+        </div>
+      </div>
     </div>
     <details class="inspector" id="ask-inspector" hidden>
-      <summary>Under the hood: retrieved chunks + exact augmented prompt sent to Groq</summary>
+      <summary>Under the hood: request / response (includes the exact prompt)</summary>
       <pre></pre>
     </details>
+  </section>
+
+  <!-- ============ 4. BREAK IT ============ -->
+  <section class="card">
+    <h2>4. Break it on purpose</h2>
+    <p class="lead">Each experiment runs your question twice, once normally and once sabotaged, so you can
+       see what failure looks like.</p>
+    <div class="row">
+      <button type="button" class="exp" data-mode="no_context">No context (hallucination)</button>
+      <button type="button" class="exp" data-mode="distractor">Inject distractor</button>
+      <button type="button" class="exp" data-mode="shuffle_middle">Bury best chunk in the middle</button>
+    </div>
+    <details class="inspector open-inline">
+      <summary>Edit the distractor passage</summary>
+      <textarea id="distractor" rows="3"></textarea>
+    </details>
+    <div id="exp-result" hidden>
+      <p class="hint" id="exp-desc"></p>
+      <div class="two-col">
+        <div class="stage"><span class="stage-label">Normal RAG</span><p id="exp-base" class="answer"></p></div>
+        <div class="stage warn"><span class="stage-label" id="exp-label">Sabotaged</span><p id="exp-broken" class="answer"></p></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 5. COMPARE ============ -->
+  <section class="card">
+    <h2>5. Compare two setups</h2>
+    <p class="lead">Same question, two configurations. Try chunk size 300 vs 900, MiniLM vs BGE, or dense
+       vs BM25 (use the exact-code and paraphrase sample questions to watch each one win).</p>
+    <div class="row">
+      <button type="button" class="ghost" data-preset="dense-bm25">Preset: dense vs BM25</button>
+      <button type="button" class="ghost" data-preset="chunks">Preset: small vs large chunks</button>
+      <button type="button" class="ghost" data-preset="models">Preset: MiniLM vs BGE</button>
+    </div>
+    <div class="two-col" id="cmp-config"></div>
+    <div class="row">
+      <label class="check"><input type="checkbox" id="cmp-skip-llm" /> Retrieval only (skip the LLM)</label>
+      <button type="button" id="compare-btn">Run comparison</button>
+    </div>
+    <p class="hint" id="cmp-summary"></p>
+    <div class="two-col" id="cmp-result"></div>
+  </section>
+
+  <!-- ============ HOW IT WORKS ============ -->
+  <section class="card">
+    <h2>How the pipeline fits together</h2>
+    <div class="flow">
+      <div class="flow-step"><span class="flow-num">1</span><h3>Chunk</h3>
+        <p>Text is split into overlapping pieces small enough to embed meaningfully.</p></div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step"><span class="flow-num">2</span><h3>Embed</h3>
+        <p>A local model turns each chunk into a vector that captures its meaning.</p></div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step"><span class="flow-num">3</span><h3>Store</h3>
+        <p>Vectors go into a per-session Chroma collection.</p></div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step"><span class="flow-num">4</span><h3>Retrieve</h3>
+        <p>The question is embedded and the closest chunks come back. No LLM yet.</p></div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step"><span class="flow-num">5</span><h3>Augment</h3>
+        <p>Chunks are stitched into a prompt next to the question.</p></div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step"><span class="flow-num">6</span><h3>Generate</h3>
+        <p>Groq answers from that prompt only.</p></div>
+    </div>
   </section>
 
 </main>
 
 <footer>
-  <p>Folder 3 project — the full RAG pipeline (LangChain + Chroma) served over FastAPI,
-     powered by Groq.</p>
+  <p>RAG Explorer: FastAPI, Chroma, sentence-transformers and Groq. Every panel has an "under the hood" view.</p>
 </footer>
 
-<script src="app.js"></script>
+<script src="api.js"></script>
+<script src="build.js"></script>
+<script src="retrieve.js"></script>
+<script src="ask.js"></script>
+<script src="lab.js"></script>
 </body>
 </html>

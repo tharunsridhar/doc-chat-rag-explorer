@@ -22,6 +22,9 @@ ENV/
 # Local Chroma vector store (regenerated on startup)
 chroma_data/
 
+# Logs
+*.log
+
 # OS
 .DS_Store
 Thumbs.db
